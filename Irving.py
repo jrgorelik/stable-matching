@@ -6,7 +6,7 @@ snippets of code from the python matching package as there is no easy way to fin
 source text in its entirety online.
 
 This code is currently under construction.  I am actively debugging in order to ensure that in works
-in every case that stable matching exists.
+in every subcase that exists.
 '''
 
 import pickle
@@ -35,70 +35,76 @@ def phase1(n,roommatePreferences,verbose=True):
     preference_list list of lists: The list of lists corresponding to the remaining available
     preferences for each roommate
     '''
+    
     unmatched_forward_mates = [True]*n
     unmatched_backward_mates = [True]*n
     first_unmatched = 0
-    #roommate_has_match = [-1]*n
     roommate_has_forward_match = [-1]*n
     roommate_has_backward_match = [-1]*n
-    #next_roommate_choice = roommatePreferences.copy()
+    
+    #I have been using pickle since .copy() was giving issues (creating deep copies instead
+    #of shallow ones
     next_roommate_choice = pickle.loads(pickle.dumps(roommatePreferences))
-    #testing to see if pickle fixes this
-    #preference_list = roommatePreferences.copy()
+    
+    #These two entries are for a quick debugging hack 
     preference_list = pickle.loads(pickle.dumps(roommatePreferences))
     spare_prefs = pickle.loads(pickle.dumps(roommatePreferences))
     
+    #Phase 1 will terminate when there are no more options for a roommate
     while sum(unmatched_forward_mates)>0:
+        if any([x==[] for x in preference_list]):
+            raise ValueError("There are no preferences remaining for one of the roommates")
         first_unmatched = unmatched_forward_mates.index(True)
-        #print(unmatched_forward_mates)
-        #print(roommate_has_forward_match)
-        #print(unmatched_backward_mates)
-        #print(roommate_has_backward_match)
-        #print(next_roommate_choice)
+
         if verbose:
             print(preference_list)
-        #set_trace()
         
         for roommate_choice in next_roommate_choice[first_unmatched]:
             wanted_mate = roommate_choice
-            #print(wanted_mate)
+            #if the the wanted mate has no existing pair
             if roommate_has_backward_match[wanted_mate]==-1:
                 roommate_has_forward_match[first_unmatched] = wanted_mate
                 roommate_has_backward_match[wanted_mate] = first_unmatched
                 unmatched_forward_mates[first_unmatched] = False
                 unmatched_backward_mates[wanted_mate] = False
                 next_roommate_choice[first_unmatched] = next_roommate_choice[first_unmatched][1:]
-                #may need to have removal of match from wanted_mate
-                set_trace()
+                #may need to have removal of match from wanted_mate.  This is a continued area of 
+                #debugging
                 break
+            #if the roommate does have an existing pair
             elif roommate_has_backward_match[wanted_mate]!=-1:
                 if roommate_has_backward_match[wanted_mate] not in next_roommate_choice[wanted_mate]:
                     next_roommate_choice[wanted_mate] = preference_list[wanted_mate]
-                    if roommate_has_backward_match[wanted_mate] not in next_roommate_choice[wanted_mate]:
-                        next_roommate_choice[wanted_mate] = spare_prefs[wanted_mate]
-                if next_roommate_choice[wanted_mate].index(first_unmatched) < next_roommate_choice[wanted_mate].index(roommate_has_backward_match[wanted_mate]):
-                    preference_list[wanted_mate].remove(roommate_has_backward_match[wanted_mate])
-                    preference_list[roommate_has_backward_match[wanted_mate]].remove(wanted_mate)
-                    roommate_has_forward_match[roommate_has_backward_match[wanted_mate]] = -1
-                    unmatched_forward_mates[roommate_has_backward_match[wanted_mate]] = True
-                    #print(roommate_has_match[wanted_mate])
-                    #new
-                    roommate_has_forward_match[first_unmatched] = wanted_mate
-                    unmatched_forward_mates[first_unmatched] = False
-                    next_roommate_choice[first_unmatched] = next_roommate_choice[first_unmatched][1:]
-                    #print(nextManChoice)
-                    roommate_has_backward_match[wanted_mate] = first_unmatched
-                    #set_trace()
-                    break
-                else:
-                    #men_to_match[0] = men_to_match[0][1:]
+                    #below is code to flip on if there continues to be issues surrounding preference list
+                    #vs new_roommate_choice
+                    #if roommate_has_backward_match[wanted_mate] not in next_roommate_choice[wanted_mate]:
+                        #next_roommate_choice[wanted_mate] = spare_prefs[wanted_mate]
+                if first_unmatched not in next_roommate_choice[wanted_mate]:
+                    next_roommate_choice[wanted_mate] = preference_list[wanted_mate]
+                if first_unmatched not in next_roommate_choice[wanted_mate]:
                     next_roommate_choice[first_unmatched] = next_roommate_choice[first_unmatched][1:]
                     preference_list = preference_list.copy()
                     preference_list[wanted_mate].remove(first_unmatched)
                     preference_list[first_unmatched].remove(wanted_mate)
-                    #continue
-                    #set_trace()
+                # if the new roommate that wants to pair is not preferred over the existing pairing
+                else:
+                    if next_roommate_choice[wanted_mate].index(first_unmatched) < next_roommate_choice[wanted_mate].index(roommate_has_backward_match[wanted_mate]):
+                        preference_list[wanted_mate].remove(roommate_has_backward_match[wanted_mate])
+                        preference_list[roommate_has_backward_match[wanted_mate]].remove(wanted_mate)
+                        roommate_has_forward_match[roommate_has_backward_match[wanted_mate]] = -1
+                        unmatched_forward_mates[roommate_has_backward_match[wanted_mate]] = True
+                        roommate_has_forward_match[first_unmatched] = wanted_mate
+                        unmatched_forward_mates[first_unmatched] = False
+                        next_roommate_choice[first_unmatched] = next_roommate_choice[first_unmatched][1:]
+                        roommate_has_backward_match[wanted_mate] = first_unmatched
+                        break
+                    else:
+                        next_roommate_choice[first_unmatched] = next_roommate_choice[first_unmatched][1:]
+                        preference_list = preference_list.copy()
+                        preference_list[wanted_mate].remove(first_unmatched)
+                        preference_list[first_unmatched].remove(wanted_mate)
             else:
+                #will be replaced with a specific error message in the future
                 print("You aren't supposed to be here")
         
     return roommate_has_forward_match, roommate_has_backward_match, next_roommate_choice, preference_list
@@ -123,11 +129,15 @@ def phase2(preference_list,roommate_has_forward_match, roommate_has_backward_mat
     '''
     preference_list_copy = pickle.loads(pickle.dumps(preference_list))
     for i in range(0,len(preference_list_copy)):
-        #set_trace()
+        if any([x==[] for x in preference_list_copy]):
+            raise ValueError("There are no preferences remaining for one of the roommates")
+        #this finds the worst case scenario for each roommate and gets rid of any potential matches
+        #that would be worse
         best_backward = preference_list_copy[i].index(roommate_has_backward_match[i])
         for j in preference_list_copy[i][(best_backward+1):len(preference_list_copy[i])]:
             preference_list_copy[j].remove(i)
             preference_list_copy[i].remove(j)
+            
             if verbose:
                 print(preference_list_copy)
     return preference_list_copy
@@ -151,10 +161,11 @@ def addendum_89(preference_list_copy,to_remove):
     #I am going to attempt to replace right with first and left with second as that appears to fix the existing issue
     #on the wiki example
     #this will require more testing and debugging
+    #this is the part of the implementation I am least sure of given the limited info on it
     pairs = []
     cycle = [to_remove[x] for x in range(1,len(to_remove)) if x%2==0]
     cycle = [(y,x) for x,y in cycle]
-    #set_trace()
+    
     for i, (_, right) in enumerate(cycle):
         left = cycle[(i - 1) % len(cycle)][0]
         successors = preference_list_copy[right][preference_list_copy[right].index(left) + 1 :]
@@ -188,6 +199,8 @@ def phase3(preference_list,n,addendum=True,finish_cycle_on_last="False",verbose=
     len_list = [0]*n
     add_one=False
     while sum([len(x) for x in preference_list_copy])>n:
+        if any([x==[] for x in preference_list_copy]):
+            raise ValueError("There are no preferences remaining for one of the roommates")
         to_remove=[]
         second=True
         for i in range(0,n):
@@ -198,36 +211,32 @@ def phase3(preference_list,n,addendum=True,finish_cycle_on_last="False",verbose=
             first_non_one +=1
         to_remove.append(tuple([-1,first_non_one]))
         current_last_val = first_non_one
+        #creating the cycles
+        #the cycle alternates between 2nd and last
         if finish_cycle_on_last == "True":
             print("finish_cycle_on_last")
             while ((to_remove[0][1]!=to_remove[-1][1]) & second == False) | (len(to_remove)==1):
-                #print(preference_list_copy[current_last_val])
                 if second==True:
                     to_remove.append(tuple([current_last_val,preference_list_copy[current_last_val][1]]))
                     current_last_val = preference_list_copy[current_last_val][1]
                     second=False
                 else:
-                    #print("not second")
                     to_remove.append(tuple([current_last_val,preference_list_copy[current_last_val][-1]]))
                     current_last_val = preference_list_copy[current_last_val][-1]
                     second=True
         else:
             while (to_remove[0][1]!=to_remove[-1][1]) | (len(to_remove)==1):
-                #print(preference_list_copy[current_last_val])
                 if second==True:
                     to_remove.append(tuple([current_last_val,preference_list_copy[current_last_val][1]]))
                     current_last_val = preference_list_copy[current_last_val][1]
                     second=False
                 else:
-                    #print("not second")
                     to_remove.append(tuple([current_last_val,preference_list_copy[current_last_val][-1]]))
                     current_last_val = preference_list_copy[current_last_val][-1]
                     second=True
-                #print(to_remove)
-        #set_trace()
+        #togglable 1989 addendum
         if addendum:
             removables = addendum_89(preference_list_copy,to_remove)
-            #print(removables)
             if removables == []:
                 add_one = True
             else:
@@ -237,10 +246,8 @@ def phase3(preference_list,n,addendum=True,finish_cycle_on_last="False",verbose=
             for i in range(0,len(removables)):
                 preference_list_copy[removables[i][0]].remove(removables[i][1])
                 preference_list_copy[removables[i][1]].remove(removables[i][0])
-                #print(preference_list_copy)
         else: 
             for i in range(2,len(to_remove)):
-                #print(to_remove[i])
                 if i%2==0:
                     preference_list_copy[to_remove[i][0]].remove(to_remove[i][1])
                     preference_list_copy[to_remove[i][1]].remove(to_remove[i][0])
@@ -248,23 +255,34 @@ def phase3(preference_list,n,addendum=True,finish_cycle_on_last="False",verbose=
                     print(preference_list_copy)
     return(preference_list_copy)
 
-def stable_roommates_matching(roommatePreferences,n,addendum=True,timeout=10000,verbose=True):
+def stable_roommates_matching(roommatePreferences,n,addendum=True,timeout=False,verbose=True):
     '''
     The main function that allows a single call to calculate the find whether stable
     roommate pairing exists.
     
     parameters:
+    roommatePreferences list of lists: A list of length n containing lists of length n-1 with
+    the indices of the other roommates in order of preference
+    n int: The number of roommates we are matching.  This must be even otherwise there will be
+    an error
+    addendum bool: A flag to decide whether or not we will be using the 1989 version
+    of the algorithm
+    timeout bool/int:  Whether or not you want a timeout and if so, for how long
+    verbose bool: Whether or not you would like step by step output
     
     return:
+    final_preferences list of lists: The updated list of lists corresponding to the final
+    preference for each roommate.  This should only have a single value for each roommate.
+    Otherwise the model will throw out an error indicating that no full matching exists.
     
     '''
     
-    
-    def handler(signum, frame):
-        raise Exception("Timed Out")
-    
-#     signal.signal(signal.SIGALRM, handler)
-#     signal.alarm(timeout)
+    if timeout:
+        def handler(signum, frame):
+            raise Exception("Timed Out")
+
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(timeout)
     try:
         roommate_forward_match, roommate_backward_match, next_roommate_choice, preference_list1 = phase1(n=n,roommatePreferences=roommatePreferences,verbose=verbose)
     except:
