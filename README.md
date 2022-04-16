@@ -1,2 +1,2 @@
 # stable-matching
-Quick implementation of stable matching algorithm
+Quick implementation of stable matching and stable roommates algorithms
